@@ -138,7 +138,13 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         } else {
             // deposit token is an ERC-20 token
             IERC20 token = IERC20(tokenAddress);
-            return token.transfer(to, amount);
+            try token.transfer(to, amount) returns (bool success) {
+                return success;
+            } catch (bytes memory) {
+                return false;
+            } catch Error (string memory) {
+                return false;
+            }
         }
     }
 }

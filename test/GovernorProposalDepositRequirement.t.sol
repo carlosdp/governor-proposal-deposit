@@ -94,7 +94,7 @@ contract GovernorProposalDepositRequirementTest is Test {
         governorTokenDeposit.stakeDeposit(proposalId);
     }
 
-    function testDoesNotRevertOnExecuteIfDepositReturnFails() public {
+    function testDoesNotRevertOnExecuteIfETHDepositReturnFails() public {
         address[] memory targets = new address[](1);
         targets[0] = address(1);
         uint256[] memory values = new uint256[](1);
@@ -116,5 +116,31 @@ contract GovernorProposalDepositRequirementTest is Test {
         vm.deal(address(governorETHDeposit), 0);
 
         governorETHDeposit.execute(targets, values, callDatas, keccak256(bytes(description)));
+    }
+
+    function testDoesNotRevertOnExecuteIfTokenDepositReturnFails() public {
+        address[] memory targets = new address[](1);
+        targets[0] = address(1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory callDatas = new bytes[](1);
+        string memory description = "Test Proposal";
+
+        uint256 proposalId = governorTokenDeposit.hashProposal(targets, values, callDatas, keccak256(bytes(description)));
+
+        token.approve(address(governorTokenDeposit), 1 ether);
+
+        governorTokenDeposit.stakeDeposit(proposalId);
+
+        governorTokenDeposit.propose(targets, values, callDatas, description);
+
+        vm.roll(block.number + 1);
+
+        governorTokenDeposit.castVote(proposalId, 1);
+
+        vm.roll(block.number + 100);
+
+        token.burn(address(governorTokenDeposit), 1 ether);
+
+        governorTokenDeposit.execute(targets, values, callDatas, keccak256(bytes(description)));
     }
 }

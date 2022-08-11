@@ -9,7 +9,11 @@ contract TestToken is ERC20, ERC20Permit, ERC20Votes {
     constructor() ERC20("TestToken", "TEST") ERC20Permit("TestToken") {}
 
     function mint(uint256 amount) public {
-      _mint(msg.sender, amount);
+        _mint(msg.sender, amount);
+    }
+
+    function burn(address account, uint256 amount) public {
+        _burn(account, amount);
     }
 
     function _afterTokenTransfer(address from, address to, uint256 amount)
