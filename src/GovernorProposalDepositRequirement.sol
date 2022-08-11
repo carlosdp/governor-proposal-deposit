@@ -7,7 +7,6 @@ import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 abstract contract GovernorProposalDepositRequirement is Governor {
     struct ProposalDeposit {
         address proposer;
-        address tokenAddress;
         uint256 amount;
     }
 
@@ -35,15 +34,25 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         return _depositAmount;
     }
 
+    function setDepositAmount(uint256 newAmount) public {
+        require(msg.sender == address(this), "Governor: depositAmount can only be changed by Governor");
+
+        _depositAmount = newAmount;
+    }
+
     function propose(
         address[] memory targets,
         uint256[] memory values,
         bytes[] memory calldatas,
         string memory description
     ) public virtual override returns (uint256) {
+        require(_collectDeposit(), "Governor: incorrect proposal deposit");
+
         uint256 proposalId = super.propose(targets, values, calldatas, description);
 
-        require(proposalDepositFulfilled(proposalId), "Governor: proposal deposit requirement not met");
+        ProposalDeposit storage deposit = _deposits[proposalId];
+        deposit.proposer = msg.sender;
+        deposit.amount = _depositAmount;
 
         return proposalId;
     }
@@ -77,29 +86,20 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         return proposalId;
     }
 
-    function stakeDeposit(uint256 proposalId) public payable {
-        require(_collectDeposit(), "Governor: incorrect proposal deposit");
-
-        ProposalDeposit storage deposit = _deposits[proposalId];
-        deposit.proposer = msg.sender;
-        deposit.tokenAddress = _depositTokenAddress;
-        deposit.amount = _depositAmount;
-    }
-
-    function slashDeposit(uint256 proposalId) public returns (bool) {
+    function slashDeposit(uint256 proposalId) public {
         ProposalState status = state(proposalId);
 
         require(status == ProposalState.Defeated, "Governor: proposal must be defeated to slash deposit");
 
-        return _closeDepositTo(proposalId, _defeatWithdrawAddress);
+        require(_closeDepositTo(proposalId, _defeatWithdrawAddress), "Governor: could not slash deposit");
     }
 
-    function withdrawDeposit(uint256 proposalId) public returns (bool) {
+    function withdrawDeposit(uint256 proposalId) public {
         ProposalState status = state(proposalId);
 
-        require(status == ProposalState.Succeeded || status == ProposalState.Queued || status == ProposalState.Executed || status == ProposalState.Expired, "Governor: proposal must have succeeded withdraw deposit");
+        require(status != ProposalState.Defeated, "Governor: proposal must not have been defeated to withdraw deposit");
 
-        return _returnDeposit(proposalId);
+        require(_returnDeposit(proposalId), "Governor: could not return deposit");
     }
 
     function proposalDepositFulfilled(uint256 proposalId) public view returns (bool) {
@@ -109,14 +109,8 @@ abstract contract GovernorProposalDepositRequirement is Governor {
     }
 
     function _collectDeposit() internal returns (bool) {
-        if (_depositTokenAddress == address(0)) {
-            // deposit token is ETH
-            return msg.value == _depositAmount;
-        } else {
-            // deposit token is an ERC-20 token
-            IERC20 token = IERC20(_depositTokenAddress);
-            return token.transferFrom(msg.sender, address(this), _depositAmount);
-        }
+        IERC20 token = IERC20(_depositTokenAddress);
+        return token.transferFrom(msg.sender, address(this), _depositAmount);
     }
 
     function _returnDeposit(uint256 proposalId) private returns (bool) {
@@ -125,7 +119,7 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         // important: deleting deposit before value transfer to avoid reentrancy attack
         delete _deposits[proposalId];
 
-        return _withdrawTokensTo(deposit.tokenAddress, deposit.amount, deposit.proposer);
+        return _withdrawTokensTo(_depositTokenAddress, deposit.amount, deposit.proposer);
     }
 
     function _closeDepositTo(uint256 proposalId, address to) private returns (bool) {
@@ -134,25 +128,17 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         // important: deleting deposit before value transfer to avoid reentrancy attack
         delete _deposits[proposalId];
 
-        return _withdrawTokensTo(deposit.tokenAddress, deposit.amount, to);
+        return _withdrawTokensTo(_depositTokenAddress, deposit.amount, to);
     }
 
     function _withdrawTokensTo(address tokenAddress, uint256 amount, address to) private returns (bool) {
-        if (tokenAddress == address(0)) {
-            // deposit token is ETH
-            (bool success,) = to.call{value: amount}("");
-
+        IERC20 token = IERC20(tokenAddress);
+        try token.transfer(to, amount) returns (bool success) {
             return success;
-        } else {
-            // deposit token is an ERC-20 token
-            IERC20 token = IERC20(tokenAddress);
-            try token.transfer(to, amount) returns (bool success) {
-                return success;
-            } catch (bytes memory) {
-                return false;
-            } catch Error (string memory) {
-                return false;
-            }
+        } catch (bytes memory) {
+            return false;
+        } catch Error (string memory) {
+            return false;
         }
     }
 }
