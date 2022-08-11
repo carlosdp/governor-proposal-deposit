@@ -86,12 +86,20 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         deposit.amount = _depositAmount;
     }
 
+    function slashDeposit(uint256 proposalId) public returns (bool) {
+        ProposalState status = state(proposalId);
+
+        require(status == ProposalState.Defeated, "Governor: proposal must be defeated to slash deposit");
+
+        return _closeDepositTo(proposalId, _defeatWithdrawAddress);
+    }
+
     function withdrawDeposit(uint256 proposalId) public returns (bool) {
         ProposalState status = state(proposalId);
 
-        require(status == ProposalState.Defeated, "Governor: proposal must be defeated to withdraw deposit");
+        require(status == ProposalState.Succeeded || status == ProposalState.Queued || status == ProposalState.Executed || status == ProposalState.Expired, "Governor: proposal must have succeeded withdraw deposit");
 
-        return _closeDepositTo(proposalId, _defeatWithdrawAddress);
+        return _returnDeposit(proposalId);
     }
 
     function proposalDepositFulfilled(uint256 proposalId) public view returns (bool) {

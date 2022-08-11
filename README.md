@@ -1,12 +1,12 @@
 # GovernorProposalDepositRequirement
 :rotating_light: **Not Yet Audited**
 
-This is an extension for the Open Zeppelin Governor contract that adds a staking requirement (in ETH or ERC-20 token) to those that want to make a proposal to governance. If the proposal succeeds, the stake is returned to the proposal on execution. If it is defeated, the stake is slashed and can be withdrawn to an address of the contract's choosing.
+This is an extension for the [Open Zeppelin Governor contract](https://docs.openzeppelin.com/contracts/4.x/api/governance#Governor) that adds a staking requirement (in ETH or ERC-20 token) to those that want to make a proposal to governance. If the proposal succeeds, the stake is returned to the proposal on execution. If it is defeated, the stake is slashed and can be withdrawn to an address of the contract's choosing.
 
 This was designed for use by the ENS DAO as a mechanism to allow safely reducing the amount of ENS tokens required to propose, without introducing the risk of spam proposals.
 
 ## Running Tests
-Install [foundry](https://foundry.sh) and run:
+Install [foundry](https://getfoundry.sh/) and run:
 
 ```bash
 forge test
