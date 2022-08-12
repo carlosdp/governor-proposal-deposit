@@ -10,9 +10,9 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         uint256 amount;
     }
 
-    address private _defeatWithdrawAddress;
-    address private _depositTokenAddress;
+    address private immutable _depositTokenAddress;
     uint256 private _depositAmount;
+    address private _defeatWithdrawAddress;
 
     mapping(uint256 => ProposalDeposit) private _deposits;
 
@@ -38,6 +38,12 @@ abstract contract GovernorProposalDepositRequirement is Governor {
         require(msg.sender == address(this), "Governor: depositAmount can only be changed by Governor");
 
         _depositAmount = newAmount;
+    }
+
+    function setDefeatWithdrawAddress(address newAddress) public {
+        require(msg.sender == address(this), "Governor: defeatWithdrawAddress can only be changed by Governor");
+
+        _defeatWithdrawAddress = newAddress;
     }
 
     function propose(
